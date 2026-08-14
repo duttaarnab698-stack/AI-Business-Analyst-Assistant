@@ -8,11 +8,12 @@ from sqlalchemy.engine import URL
 
 
 # ============================================================
-# LOAD .ENV
+# LOAD ENVIRONMENT VARIABLES
 # ============================================================
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
+# Local development-এর জন্য .env load করবে
 load_dotenv(PROJECT_ROOT / ".env")
 
 
@@ -20,23 +21,41 @@ load_dotenv(PROJECT_ROOT / ".env")
 # DATABASE CONFIGURATION
 # ============================================================
 
-DB_HOST = "localhost"
-DB_PORT = 3306
-DB_USER = "root"
-
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = int(os.getenv("DB_PORT", "3306"))
+DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME", "ai_business_analyst")
 
-DB_NAME = "ai_business_analyst"
 
+# ============================================================
+# VALIDATE DATABASE CONFIGURATION
+# ============================================================
+
+missing = []
+
+if not DB_HOST:
+    missing.append("DB_HOST")
+
+if not DB_USER:
+    missing.append("DB_USER")
 
 if not DB_PASSWORD:
+    missing.append("DB_PASSWORD")
+
+if not DB_NAME:
+    missing.append("DB_NAME")
+
+
+if missing:
     raise ValueError(
-        "DB_PASSWORD not found in .env file."
+        "Missing database environment variables: "
+        + ", ".join(missing)
     )
 
 
 # ============================================================
-# CREATE DATABASE URL SAFELY
+# CREATE DATABASE URL
 # ============================================================
 
 database_url = URL.create(
