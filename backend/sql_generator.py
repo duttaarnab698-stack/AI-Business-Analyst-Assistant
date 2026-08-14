@@ -84,9 +84,6 @@ def generate_sql(question):
     # ========================================================
     # SPECIAL CASE: TOTAL SALES
     # ========================================================
-    # This prevents Gemini from generating multiple queries
-    # for a simple total-sales question.
-    # ========================================================
 
     question_lower = question.lower()
 
@@ -159,7 +156,7 @@ DATABASE SCHEMA
 STRICT SQL RULES
 ----------------
 
-1. Use ONLY the `orders` table.
+1. ALWAYS use the `orders` table.
 
 2. Use ONLY columns that exist in the schema.
 
@@ -183,7 +180,7 @@ STRICT SQL RULES
 
 7. Do NOT return markdown.
 
-8. Do NOT use ```sql.
+8. Do NOT return ```sql.
 
 9. Do NOT explain the SQL query.
 
@@ -195,7 +192,6 @@ STRICT SQL RULES
     COUNT()
     MIN()
     MAX()
-    when appropriate.
 
 12. For grouped analysis, use GROUP BY.
 
@@ -249,14 +245,13 @@ STRICT SQL RULES
 31. If the user specifies a month and year, filter ONLY
     that month and year.
 
-32. If the user specifies a category, filter or group ONLY
-    according to the user's request.
+32. If the user specifies a category, preserve that constraint.
 
-33. If the user specifies a region, preserve that region constraint.
+33. If the user specifies a region, preserve that constraint.
 
-34. If the user specifies a customer, preserve that customer constraint.
+34. If the user specifies a customer, preserve that constraint.
 
-35. If the user specifies a product, preserve that product constraint.
+35. If the user specifies a product, preserve that constraint.
 
 36. If the user asks for a comparison, compare ONLY the
     requested periods, categories, regions, customers,
@@ -313,7 +308,6 @@ STRICT SQL RULES
 
 56. Do NOT add a semicolon at the end of the query.
 
-
 IMPORTANT EXAMPLES
 ------------------
 
@@ -321,7 +315,6 @@ Question:
 Which category generated the highest sales?
 
 SQL:
-
 SELECT
     category,
     SUM(sales) AS total_sales
@@ -335,7 +328,6 @@ Question:
 Which region generated the highest profit?
 
 SQL:
-
 SELECT
     region,
     SUM(profit) AS total_profit
@@ -349,7 +341,6 @@ Question:
 Who are the top 10 customers by sales?
 
 SQL:
-
 SELECT
     customer_id,
     customer_name,
@@ -364,7 +355,6 @@ Question:
 What is the total sales?
 
 SQL:
-
 SELECT
     SUM(sales) AS total_sales
 FROM orders
@@ -374,7 +364,6 @@ Question:
 What is the total quantity?
 
 SQL:
-
 SELECT
     SUM(quantity) AS total_quantity
 FROM orders
@@ -384,7 +373,6 @@ Question:
 What is the total profit?
 
 SQL:
-
 SELECT
     SUM(profit) AS total_profit
 FROM orders
@@ -394,7 +382,6 @@ Question:
 What were the sales in March 2017?
 
 SQL:
-
 SELECT
     SUM(sales) AS total_sales
 FROM orders
@@ -405,8 +392,8 @@ AND MONTH(order_date) = 3
 Question:
 Why did sales change in March 2017?
 
-The query should focus ONLY on March 2017 and
-the relevant comparison period.
+The query should focus ONLY on March 2017
+and the relevant comparison period.
 
 Do not answer an unrelated question.
 
@@ -447,30 +434,11 @@ USER QUESTION
     # REMOVE MARKDOWN CODE FENCES
     # ========================================================
 
-    sql = sql.replace(
-        "```sql",
-        ""
-    )
-
-    sql = sql.replace(
-        "```SQL",
-        ""
-    )
-
-    sql = sql.replace(
-        "```mysql",
-        ""
-    )
-
-    sql = sql.replace(
-        "```MySQL",
-        ""
-    )
-
-    sql = sql.replace(
-        "```",
-        ""
-    )
+    sql = sql.replace("```sql", "")
+    sql = sql.replace("```SQL", "")
+    sql = sql.replace("```mysql", "")
+    sql = sql.replace("```MySQL", "")
+    sql = sql.replace("```", "")
 
     sql = sql.strip()
 
@@ -577,20 +545,26 @@ def validate_sql(sql):
     # Must use orders table
     # --------------------------------------------------------
 
-    orders_pattern = r"""
-        \bFROM\s+
-        (?:
-            `?AI_BUSINESS_ANALYST`?\s*\.\s*
-        )?
-        `?ORDERS`?
-        \b
-    """
+    # Accept:
+    # FROM orders
+    # FROM `orders`
+    # FROM ai_business_analyst.orders
+    # FROM `ai_business_analyst`.`orders`
+
+    orders_pattern = (
+        r"\bFROM\s+"
+        r"(?:"
+        r"`?AI_BUSINESS_ANALYST`?"
+        r"\s*\.\s*"
+        r")?"
+        r"`?ORDERS`?"
+        r"(?:\s|$)"
+    )
 
 
     if not re.search(
         orders_pattern,
-        sql_upper,
-        re.VERBOSE
+        sql_upper
     ):
 
         return False, (
