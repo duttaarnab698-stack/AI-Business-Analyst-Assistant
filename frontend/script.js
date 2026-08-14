@@ -1,68 +1,8 @@
-const API_URL = "https://ai-business-analyst-assistant.onrender.com";
-const HISTORY_KEY = "ai-business-analyst-history";
-
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".nav-item").forEach(button => button.addEventListener("click", () => showPage(button.dataset.page)));
-  document.querySelectorAll("[data-go-to]").forEach(button => button.addEventListener("click", () => showPage(button.dataset.goTo)));
-  document.querySelectorAll(".suggestion").forEach(button => button.addEventListener("click", () => setQuestion(button.dataset.question)));
-  document.getElementById("askButton").addEventListener("click", askQuestion);
-  document.getElementById("question").addEventListener("keydown", event => { if (event.key === "Enter" && event.ctrlKey) askQuestion(); });
-  document.getElementById("menuButton").addEventListener("click", toggleSidebar);
-  document.getElementById("sidebarOverlay").addEventListener("click", toggleSidebar);
-  initializePowerBiViewer();
-  renderHistory();
-});
-
-function initializePowerBiViewer() {
-  const reportImage = document.getElementById("powerbiReportImage"), reportTitle = document.getElementById("reportTitle"), modal = document.getElementById("reportModal"), modalImage = document.getElementById("modalReportImage"), modalTitle = document.getElementById("modalReportTitle");
-  const closeModal = () => modal.classList.add("hidden");
-  document.querySelectorAll(".report-tab").forEach(tab => tab.addEventListener("click", () => {
-    document.querySelectorAll(".report-tab").forEach(item => { const active = item === tab; item.classList.toggle("active", active); item.setAttribute("aria-selected", String(active)); });
-    const { reportTitle: title, reportImage: image } = tab.dataset;
-    reportImage.src = image; reportImage.alt = `${title} Power BI report preview`; reportTitle.textContent = title;
-  }));
-  document.getElementById("fullscreenButton").addEventListener("click", () => { modalImage.src = reportImage.src; modalImage.alt = reportImage.alt; modalTitle.textContent = reportTitle.textContent; modal.classList.remove("hidden"); document.getElementById("modalCloseButton").focus(); });
-  document.getElementById("modalCloseButton").addEventListener("click", closeModal);
-  modal.querySelector("[data-close-report-modal]").addEventListener("click", closeModal);
-  document.addEventListener("keydown", event => { if (event.key === "Escape" && !modal.classList.contains("hidden")) closeModal(); });
-}
-
-function showPage(name) {
-  document.querySelectorAll(".page").forEach(page => page.classList.toggle("active", page.id === `${name}-page`));
-  document.querySelectorAll(".nav-item").forEach(button => button.classList.toggle("active", button.dataset.page === name));
-  document.getElementById("sidebar").classList.remove("open"); document.getElementById("sidebarOverlay").classList.remove("show");
-  if (name === "history") renderHistory();
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-function toggleSidebar() { document.getElementById("sidebar").classList.toggle("open"); document.getElementById("sidebarOverlay").classList.toggle("show"); }
-function setQuestion(question) { document.getElementById("question").value = question; showPage("analyst"); setTimeout(() => document.getElementById("question").focus(), 100); }
-
-async function askQuestion() {
-  const input = document.getElementById("question"), question = input.value.trim(), button = document.getElementById("askButton");
-  if (!question) return showError("Please enter a business question before asking the AI Analyst.");
-  hide("errorBox"); hide("resultSection"); hide("emptyAnalysis"); show("loading"); button.disabled = true; document.getElementById("buttonText").textContent = "Analyzing...";
-  try {
-    const response = await fetch(`${API_URL}/ask`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
-    let result; try { result = await response.json(); } catch { throw new Error("The AI service returned an unreadable response."); }
-    if (!response.ok || !result.success) throw new Error(result.error || "Unable to analyze your question.");
-    document.getElementById("answerBox").textContent = result.answer || "No answer was returned for this question.";
-    document.getElementById("sqlBox").textContent = result.sql || "SQL not available.";
-    renderData(result.data, document.getElementById("dataBox")); show("resultSection"); saveHistory(question, result.answer || "No answer returned.");
-  } catch (error) { showError(safeError(error)); }
-  finally { hide("loading"); button.disabled = false; document.getElementById("buttonText").textContent = "Ask AI"; }
-}
-function show(id) { document.getElementById(id).classList.remove("hidden"); } function hide(id) { document.getElementById(id).classList.add("hidden"); }
-function showError(message) { const box = document.getElementById("errorBox"); box.textContent = `Unable to analyze your question. ${message}`; show("errorBox"); }
-function safeError(error) { const message = error?.message || "Please check that the local AI service is running and try again."; return message.replace(/(?:traceback|at \S+\(|file ".*)/ig, "").slice(0, 300); }
-function renderData(data, container) {
-  container.innerHTML = ""; if (!Array.isArray(data) || !data.length) { container.textContent = "No database rows returned."; return; }
-  const columns = [...new Set(data.flatMap(row => row && typeof row === "object" ? Object.keys(row) : []))]; if (!columns.length) { container.textContent = "No tabular database rows returned."; return; }
-  const table = document.createElement("table"); table.className = "data-table"; const thead = document.createElement("thead"), header = document.createElement("tr");
-  columns.forEach(key => { const th = document.createElement("th"); th.textContent = formatColumnName(key); header.appendChild(th); }); thead.appendChild(header); table.appendChild(thead);
-  const body = document.createElement("tbody"); data.forEach(row => { const tr = document.createElement("tr"); columns.forEach(key => { const td = document.createElement("td"); td.textContent = formatValue(row?.[key]); tr.appendChild(td); }); body.appendChild(tr); }); table.appendChild(body); container.appendChild(table);
-}
-function formatColumnName(column) { return String(column).replaceAll("_", " ").replace(/\b\w/g, char => char.toUpperCase()); }
-function formatValue(value) { if (value === null || value === undefined) return "—"; if (typeof value === "number") return value.toLocaleString("en-US", { maximumFractionDigits: 2 }); if (typeof value === "object") return JSON.stringify(value); return String(value); }
-function saveHistory(question, answer) { const history = getHistory(); history.unshift({ question, answer, timestamp: new Date().toISOString() }); localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20))); }
-function getHistory() { try { const stored = JSON.parse(localStorage.getItem(HISTORY_KEY)); return Array.isArray(stored) ? stored : []; } catch { return []; } }
-function renderHistory() { const container = document.getElementById("historyList"); const history = getHistory(); container.innerHTML = ""; if (!history.length) { container.innerHTML = '<div class="empty-state history-empty"><span class="empty-icon">◷</span><h3>No query history available yet.</h3><p>Questions asked in this browser will appear here.</p></div>'; return; } history.forEach(item => { const card = document.createElement("article"); card.className = "history-item"; const title = document.createElement("h3"), answer = document.createElement("p"), date = document.createElement("small"); title.textContent = item.question; answer.textContent = item.answer; date.textContent = new Date(item.timestamp).toLocaleString(); card.append(title, answer, date); container.appendChild(card); }); }
+const API_URL="https://ai-business-analyst-assistant.onrender.com",POWERBI_URL="",LIVE_DEMO_URL="",GITHUB_REPO_URL="";
+const brandFix=document.createElement("style");brandFix.textContent=".brand{display:flex;align-items:center;gap:10px}.brand b{width:42px;height:42px;margin:0;padding:0;display:grid;place-items:center;flex:0 0 42px;border-radius:11px;font-size:19px}";document.head.appendChild(brandFix);
+const $=id=>document.getElementById(id);document.addEventListener("DOMContentLoaded",()=>{document.querySelectorAll("nav button").forEach(x=>x.onclick=()=>page(x.dataset.page));document.querySelectorAll("[data-go]").forEach(x=>x.onclick=()=>page(x.dataset.go));document.querySelectorAll("[data-q]").forEach(x=>x.onclick=()=>{$("question").value=x.dataset.q;$("question").focus()});$("ask").onclick=ask;$("question").onkeydown=e=>{if(e.key==="Enter"&&(e.ctrlKey||e.metaKey))ask()};$("copy").onclick=copy;$("new").onclick=()=>{hide("result");show("empty");$("question").focus()};$("menu").onclick=toggle;$("overlay").onclick=toggle;document.querySelectorAll(".power-open").forEach(x=>x.onclick=openPower);link("demo",LIVE_DEMO_URL,"Live demo URL is not configured yet.");link("github",GITHUB_REPO_URL,"GitHub repository URL is not configured yet.")});
+document.addEventListener("DOMContentLoaded",restorePowerBiPreviews);
+function restorePowerBiPreviews(){const page=$("powerbi-page"),reports=[["Executive Overview","powerbi/page1-overview.png"],["Sales Analysis","powerbi/page2-sales.png"],["Category & Product","powerbi/page3-category-product.png"],["Regional Analysis","powerbi/page4-region.png"],["Customer & Profit","powerbi/page5-customer-profit.png"]];page.innerHTML=`<div class="intro"><small>VISUAL ANALYTICS</small><h2>Power BI Dashboard</h2><p>Explore interactive business analytics and visual insights.</p></div><div class="bi-preview"><div class="bi-tabs">${reports.map(([title,image],i)=>`<button class="bi-tab ${i?"":"active"}" data-image="${image}" data-title="${title}">${title}</button>`).join("")}</div><div class="bi-head"><span><small>POWER BI REPORT PREVIEW</small><h3 id="bi-title">Executive Overview</h3></span><button class="blue power-open">Open Power BI Dashboard ↗</button></div><img id="bi-image" src="powerbi/page1-overview.png" alt="Executive Overview Power BI report preview"><p>Power BI report preview</p></div>`;page.querySelectorAll(".bi-tab").forEach(tab=>tab.onclick=()=>{page.querySelectorAll(".bi-tab").forEach(x=>x.classList.toggle("active",x===tab));$("bi-image").src=tab.dataset.image;$("bi-image").alt=`${tab.dataset.title} Power BI report preview`;$("bi-title").textContent=tab.dataset.title});page.querySelector(".power-open").onclick=openPower;const style=document.createElement("style");style.textContent=".bi-preview{background:#10213f;padding:18px;border-radius:15px;box-shadow:0 12px 32px #122b4f18}.bi-tabs{display:flex;gap:8px;overflow:auto;padding-bottom:14px}.bi-tab{white-space:nowrap;border:1px solid #ffffff2d;background:#ffffff12;color:#dbe7fa;border-radius:8px;padding:9px 12px;font:700 12px Arial;cursor:pointer}.bi-tab.active{background:#ffca28;color:#182842;border-color:#ffca28}.bi-head{background:#fff;border-radius:10px 10px 0 0;padding:15px;display:flex;justify-content:space-between;align-items:center}.bi-head h3{margin:0;font-size:16px}.bi-head .blue{margin:0}.bi-preview img{display:block;background:#fff;width:100%;height:auto}.bi-preview p{color:#b9c8dd;font-size:12px;margin:10px 0 0}@media(max-width:700px){.bi-head{align-items:stretch;flex-direction:column;gap:10px}.bi-head .blue{width:100%}}";document.head.append(style)}
+function page(n){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("active",x.id===n+"-page"));document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===n));$("title").textContent=document.querySelector(`nav button[data-page="${n}"]`).textContent.trim();$("side").classList.remove("open");$("overlay").classList.remove("show");scrollTo({top:0,behavior:"smooth"})}function toggle(){$("side").classList.toggle("open");$("overlay").classList.toggle("show")}function show(x){$(x).classList.remove("hidden")}function hide(x){$(x).classList.add("hidden")}function link(id,url,msg){const a=$(id);if(url){a.href=url;a.target="_blank";a.rel="noopener noreferrer"}else a.onclick=e=>{e.preventDefault();toast(msg)}}function openPower(){POWERBI_URL?open(POWERBI_URL,"_blank","noopener,noreferrer"):toast("Power BI dashboard URL is not configured yet.")}
+async function ask(){const q=$("question").value.trim(),b=$("ask");if(!q)return error("Please enter a business question before starting analysis.");hide("error");hide("result");hide("empty");show("loading");b.disabled=true;$("askText").textContent="Analyzing...";try{const r=await fetch(`${API_URL}/ask`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question:q})});let d;try{d=await r.json()}catch{throw Error("The AI service returned an unreadable response.")}if(!r.ok||!d.success)throw Error(d.error||"Unable to analyze this question.");$("answer").textContent=d.answer||"No answer was returned for this question.";$("sql").textContent=d.sql||"No generated SQL is available for this analysis.";table(Array.isArray(d.data)?d.data:rootRows(d.analysis));show("result")}catch(e){error(String(e.message||"Please try again shortly.").slice(0,300))}finally{hide("loading");b.disabled=false;$("askText").textContent="Analyze with AI"}}
+function rootRows(a){return a&&typeof a==="object"?Object.entries(a).flatMap(([k,v])=>Array.isArray(v)?v.map(x=>({analysis_section:k,...x})):[]):[]}function table(rows){const box=$("data");box.replaceChildren();if(!rows.length){box.textContent="No database rows returned for this analysis.";return}const cols=[...new Set(rows.flatMap(x=>Object.keys(x||{})))],t=document.createElement("table"),h=document.createElement("tr");cols.forEach(c=>{let x=document.createElement("th");x.textContent=c.replaceAll("_"," ");h.append(x)});let head=document.createElement("thead");head.append(h);t.append(head);let body=document.createElement("tbody");rows.forEach(r=>{let tr=document.createElement("tr");cols.forEach(c=>{let td=document.createElement("td"),v=r[c];td.textContent=v==null?"—":typeof v==="number"?v.toLocaleString("en-US",{maximumFractionDigits:2}):typeof v==="object"?JSON.stringify(v):v;tr.append(td)});body.append(tr)});t.append(body);box.append(t)}async function copy(){let s=$("sql").textContent;if(s.startsWith("No generated"))return toast("No SQL is available to copy.");try{await navigator.clipboard.writeText(s);toast("SQL copied to clipboard.")}catch{toast("Unable to copy SQL automatically.")}}function error(m){$("error").textContent="Unable to analyze your question. "+m;show("error")}function toast(m){$("toast").textContent=m;$("toast").classList.add("show");clearTimeout(window.tt);window.tt=setTimeout(()=>$("toast").classList.remove("show"),2800)}
