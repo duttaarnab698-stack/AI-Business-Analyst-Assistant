@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:5000";
+const API_URL = "https://ai-business-analyst-assistant.onrender.com";
 const HISTORY_KEY = "ai-business-analyst-history";
 
 document.addEventListener("DOMContentLoaded", () => {
