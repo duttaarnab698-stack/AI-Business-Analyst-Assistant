@@ -4,77 +4,69 @@ from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import URL
 
 
 # ============================================================
-# LOAD ENVIRONMENT VARIABLES
+# LOAD .ENV
 # ============================================================
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Local development-এর জন্য .env load করবে
 load_dotenv(PROJECT_ROOT / ".env")
 
 
 # ============================================================
-# DATABASE CONFIGURATION
+# DATABASE URL
 # ============================================================
 
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = int(os.getenv("DB_PORT", "3306"))
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_NAME = os.getenv("DB_NAME", "ai_business_analyst")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-
-# ============================================================
-# VALIDATE DATABASE CONFIGURATION
-# ============================================================
-
-missing = []
-
-if not DB_HOST:
-    missing.append("DB_HOST")
-
-if not DB_USER:
-    missing.append("DB_USER")
-
-if not DB_PASSWORD:
-    missing.append("DB_PASSWORD")
-
-if not DB_NAME:
-    missing.append("DB_NAME")
-
-
-if missing:
+if not DATABASE_URL:
     raise ValueError(
-        "Missing database environment variables: "
-        + ", ".join(missing)
+        "DATABASE_URL not found in .env file."
     )
 
 
 # ============================================================
-# CREATE DATABASE URL
+# FORCE PSYCOPG DRIVER
 # ============================================================
 
-database_url = URL.create(
-    drivername="mysql+pymysql",
-    username=DB_USER,
-    password=DB_PASSWORD,
-    host=DB_HOST,
-    port=DB_PORT,
-    database=DB_NAME
-)
+if DATABASE_URL.startswith("postgresql://"):
+
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgresql://",
+        "postgresql+psycopg://",
+        1
+    )
+
+elif DATABASE_URL.startswith("postgres://"):
+
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgres://",
+        "postgresql+psycopg://",
+        1
+    )
+
+elif DATABASE_URL.startswith("postgresql+psycopg2://"):
+
+    DATABASE_URL = DATABASE_URL.replace(
+        "postgresql+psycopg2://",
+        "postgresql+psycopg://",
+        1
+    )
 
 
 # ============================================================
-# SQLALCHEMY ENGINE
+# POSTGRESQL ENGINE
 # ============================================================
 
 engine = create_engine(
-    database_url,
-    pool_pre_ping=True
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=300,
+    connect_args={
+        "connect_timeout": 30
+    }
 )
 
 
@@ -98,7 +90,10 @@ def test_connection():
 
     except Exception as error:
 
-        print("\nDatabase connection failed:")
+        print(
+            "\nDatabase connection failed:"
+        )
+
         print(error)
 
         return False
@@ -110,14 +105,88 @@ def test_connection():
 
 def get_data(query):
 
-    with engine.connect() as connection:
+    try:
 
-        df = pd.read_sql(
-            text(query),
-            connection
+        with engine.connect() as connection:
+
+            df = pd.read_sql(
+                text(query),
+                connection
+            )
+
+        return df
+
+    except Exception as error:
+
+        print(
+            "\nDatabase query failed:"
         )
 
-    return df
+        print(error)
+
+        raise
+
+
+# ============================================================
+# CHECK ORDERS TABLE
+# ============================================================
+
+def check_orders_table():
+
+    try:
+
+        with engine.connect() as connection:
+
+            result = connection.execute(
+                text("""
+                    SELECT COUNT(*)
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                    AND table_name = 'orders'
+                """)
+            )
+
+            return result.scalar() > 0
+
+    except Exception as error:
+
+        print(
+            "\nTable check failed:"
+        )
+
+        print(error)
+
+        return False
+
+
+# ============================================================
+# GET TOTAL ROWS
+# ============================================================
+
+def get_total_rows():
+
+    try:
+
+        with engine.connect() as connection:
+
+            result = connection.execute(
+                text("""
+                    SELECT COUNT(*)
+                    FROM orders
+                """)
+            )
+
+            return result.scalar()
+
+    except Exception as error:
+
+        print(
+            "\nRow count failed:"
+        )
+
+        print(error)
+
+        return None
 
 
 # ============================================================
@@ -127,28 +196,90 @@ def get_data(query):
 if __name__ == "__main__":
 
     print("=" * 60)
-    print("DATABASE CONNECTION TEST")
+
+    print(
+        "POSTGRESQL DATABASE CONNECTION TEST"
+    )
+
     print("=" * 60)
 
-    print("\nHost:", DB_HOST)
-    print("Port:", DB_PORT)
-    print("User:", DB_USER)
-    print("Database:", DB_NAME)
+
+    print(
+        "\nDatabase URL: Loaded from .env"
+    )
+
+
+    # ========================================================
+    # CONNECTION TEST
+    # ========================================================
 
     if test_connection():
 
-        print("\nDatabase connection: SUCCESS")
+        print(
+            "\nDatabase connection: SUCCESS"
+        )
 
-        query = """
-        SELECT COUNT(*) AS total_rows
-        FROM orders;
-        """
 
-        df = get_data(query)
+        # ====================================================
+        # ORDERS TABLE TEST
+        # ====================================================
 
-        print("\nResult:")
-        print(df.to_string(index=False))
+        if check_orders_table():
+
+            print(
+                "\norders table: EXISTS"
+            )
+
+
+            # =================================================
+            # ROW COUNT
+            # =================================================
+
+            total_rows = get_total_rows()
+
+
+            print(
+                "\nTotal rows:"
+            )
+
+            print(
+                total_rows
+            )
+
+
+            # =================================================
+            # FINAL STATUS
+            # =================================================
+
+            if total_rows == 9994:
+
+                print(
+                    "\nSUCCESS: "
+                    "All 9994 rows are available."
+                )
+
+            else:
+
+                print(
+                    "\nWARNING: "
+                    f"Expected 9994 rows, "
+                    f"but found {total_rows}."
+                )
+
+
+        else:
+
+            print(
+                "\norders table: NOT FOUND"
+            )
+
+            print(
+                "Please import superstore.csv first."
+            )
+
 
     else:
 
-        print("\nDatabase connection: FAILED")
+        print(
+            "\nDatabase connection: FAILED"
+        )

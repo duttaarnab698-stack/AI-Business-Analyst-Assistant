@@ -5,8 +5,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 from google import genai
 
-from sql_generator import generate_sql, validate_sql
-from database import get_data
+# IMPORTANT:
+# ai_analyst.py এবং sql_generator.py/database.py
+# একই backend folder-এর মধ্যে আছে।
+from .sql_generator import generate_sql, validate_sql
+from .database import get_data
 
 
 # ============================================================
@@ -30,7 +33,9 @@ if not api_key:
 # 2. GEMINI CLIENT
 # ============================================================
 
-client = genai.Client(api_key=api_key)
+client = genai.Client(
+    api_key=api_key
+)
 
 
 # ============================================================
@@ -97,7 +102,9 @@ def extract_period(question):
     for month_name, month_number in months.items():
 
         if month_name in question_lower:
+
             month = month_number
+
             break
 
     return year, month
@@ -110,6 +117,7 @@ def extract_period(question):
 def get_previous_month(year, month):
 
     if month == 1:
+
         return year - 1, 12
 
     return year, month - 1
@@ -134,6 +142,7 @@ def root_cause_analysis(question):
             )
         }
 
+
     previous_year, previous_month = get_previous_month(
         year,
         month
@@ -149,8 +158,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN sales
                     ELSE 0
                 END
@@ -161,8 +170,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN sales
                     ELSE 0
                 END
@@ -173,8 +182,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN profit
                     ELSE 0
                 END
@@ -185,8 +194,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN profit
                     ELSE 0
                 END
@@ -196,8 +205,8 @@ def root_cause_analysis(question):
 
         SUM(
             CASE
-                WHEN YEAR(order_date) = {previous_year}
-                AND MONTH(order_date) = {previous_month}
+                WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                AND EXTRACT(MONTH FROM order_date) = {previous_month}
                 THEN quantity
                 ELSE 0
             END
@@ -205,14 +214,14 @@ def root_cause_analysis(question):
 
         SUM(
             CASE
-                WHEN YEAR(order_date) = {year}
-                AND MONTH(order_date) = {month}
+                WHEN EXTRACT(YEAR FROM order_date) = {year}
+                AND EXTRACT(MONTH FROM order_date) = {month}
                 THEN quantity
                 ELSE 0
             END
         ) AS current_quantity
 
-    FROM orders;
+    FROM orders
     """
 
     overall = get_data(query)
@@ -229,8 +238,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN sales
                     ELSE 0
                 END
@@ -241,8 +250,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN sales
                     ELSE 0
                 END
@@ -253,8 +262,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN sales
                     ELSE 0
                 END
@@ -262,8 +271,8 @@ def root_cause_analysis(question):
             -
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN sales
                     ELSE 0
                 END
@@ -275,18 +284,18 @@ def root_cause_analysis(question):
 
     WHERE
         (
-            YEAR(order_date) = {previous_year}
-            AND MONTH(order_date) = {previous_month}
+            EXTRACT(YEAR FROM order_date) = {previous_year}
+            AND EXTRACT(MONTH FROM order_date) = {previous_month}
         )
         OR
         (
-            YEAR(order_date) = {year}
-            AND MONTH(order_date) = {month}
+            EXTRACT(YEAR FROM order_date) = {year}
+            AND EXTRACT(MONTH FROM order_date) = {month}
         )
 
     GROUP BY category
 
-    ORDER BY sales_change ASC;
+    ORDER BY sales_change ASC
     """
 
     category = get_data(query)
@@ -303,8 +312,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN sales
                     ELSE 0
                 END
@@ -315,8 +324,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN sales
                     ELSE 0
                 END
@@ -327,8 +336,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN sales
                     ELSE 0
                 END
@@ -336,8 +345,8 @@ def root_cause_analysis(question):
             -
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN sales
                     ELSE 0
                 END
@@ -349,18 +358,18 @@ def root_cause_analysis(question):
 
     WHERE
         (
-            YEAR(order_date) = {previous_year}
-            AND MONTH(order_date) = {previous_month}
+            EXTRACT(YEAR FROM order_date) = {previous_year}
+            AND EXTRACT(MONTH FROM order_date) = {previous_month}
         )
         OR
         (
-            YEAR(order_date) = {year}
-            AND MONTH(order_date) = {month}
+            EXTRACT(YEAR FROM order_date) = {year}
+            AND EXTRACT(MONTH FROM order_date) = {month}
         )
 
     GROUP BY region
 
-    ORDER BY sales_change ASC;
+    ORDER BY sales_change ASC
     """
 
     region = get_data(query)
@@ -378,8 +387,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN sales
                     ELSE 0
                 END
@@ -390,8 +399,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN sales
                     ELSE 0
                 END
@@ -402,8 +411,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN sales
                     ELSE 0
                 END
@@ -411,8 +420,8 @@ def root_cause_analysis(question):
             -
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN sales
                     ELSE 0
                 END
@@ -424,22 +433,41 @@ def root_cause_analysis(question):
 
     WHERE
         (
-            YEAR(order_date) = {previous_year}
-            AND MONTH(order_date) = {previous_month}
+            EXTRACT(YEAR FROM order_date) = {previous_year}
+            AND EXTRACT(MONTH FROM order_date) = {previous_month}
         )
         OR
         (
-            YEAR(order_date) = {year}
-            AND MONTH(order_date) = {month}
+            EXTRACT(YEAR FROM order_date) = {year}
+            AND EXTRACT(MONTH FROM order_date) = {month}
         )
 
     GROUP BY customer_id, customer_name
 
-    HAVING sales_change < 0
+    HAVING
+        (
+            SUM(
+                CASE
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
+                    THEN sales
+                    ELSE 0
+                END
+            )
+            -
+            SUM(
+                CASE
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
+                    THEN sales
+                    ELSE 0
+                END
+            )
+        ) < 0
 
     ORDER BY sales_change ASC
 
-    LIMIT 10;
+    LIMIT 10
     """
 
     customer = get_data(query)
@@ -457,8 +485,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN sales
                     ELSE 0
                 END
@@ -469,8 +497,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN sales
                     ELSE 0
                 END
@@ -481,8 +509,8 @@ def root_cause_analysis(question):
         ROUND(
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN sales
                     ELSE 0
                 END
@@ -490,8 +518,8 @@ def root_cause_analysis(question):
             -
             SUM(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN sales
                     ELSE 0
                 END
@@ -503,22 +531,41 @@ def root_cause_analysis(question):
 
     WHERE
         (
-            YEAR(order_date) = {previous_year}
-            AND MONTH(order_date) = {previous_month}
+            EXTRACT(YEAR FROM order_date) = {previous_year}
+            AND EXTRACT(MONTH FROM order_date) = {previous_month}
         )
         OR
         (
-            YEAR(order_date) = {year}
-            AND MONTH(order_date) = {month}
+            EXTRACT(YEAR FROM order_date) = {year}
+            AND EXTRACT(MONTH FROM order_date) = {month}
         )
 
     GROUP BY product_id, product_name
 
-    HAVING sales_change < 0
+    HAVING
+        (
+            SUM(
+                CASE
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
+                    THEN sales
+                    ELSE 0
+                END
+            )
+            -
+            SUM(
+                CASE
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
+                    THEN sales
+                    ELSE 0
+                END
+            )
+        ) < 0
 
     ORDER BY sales_change ASC
 
-    LIMIT 10;
+    LIMIT 10
     """
 
     product = get_data(query)
@@ -533,8 +580,8 @@ def root_cause_analysis(question):
         ROUND(
             AVG(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN discount
                 END
             ),
@@ -544,8 +591,8 @@ def root_cause_analysis(question):
         ROUND(
             AVG(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN discount
                 END
             ),
@@ -555,8 +602,8 @@ def root_cause_analysis(question):
         ROUND(
             AVG(
                 CASE
-                    WHEN YEAR(order_date) = {previous_year}
-                    AND MONTH(order_date) = {previous_month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {previous_year}
+                    AND EXTRACT(MONTH FROM order_date) = {previous_month}
                     THEN profit
                 END
             ),
@@ -566,15 +613,15 @@ def root_cause_analysis(question):
         ROUND(
             AVG(
                 CASE
-                    WHEN YEAR(order_date) = {year}
-                    AND MONTH(order_date) = {month}
+                    WHEN EXTRACT(YEAR FROM order_date) = {year}
+                    AND EXTRACT(MONTH FROM order_date) = {month}
                     THEN profit
                 END
             ),
             2
         ) AS current_avg_profit
 
-    FROM orders;
+    FROM orders
     """
 
     discount = get_data(query)
@@ -607,12 +654,29 @@ def generate_root_cause_insight(question, analysis):
     previous_year = analysis["previous_year"]
     previous_month = analysis["previous_month"]
 
-    overall_text = analysis["overall"].to_string(index=False)
-    category_text = analysis["category"].to_string(index=False)
-    region_text = analysis["region"].to_string(index=False)
-    customer_text = analysis["customer"].to_string(index=False)
-    product_text = analysis["product"].to_string(index=False)
-    discount_text = analysis["discount"].to_string(index=False)
+    overall_text = analysis["overall"].to_string(
+        index=False
+    )
+
+    category_text = analysis["category"].to_string(
+        index=False
+    )
+
+    region_text = analysis["region"].to_string(
+        index=False
+    )
+
+    customer_text = analysis["customer"].to_string(
+        index=False
+    )
+
+    product_text = analysis["product"].to_string(
+        index=False
+    )
+
+    discount_text = analysis["discount"].to_string(
+        index=False
+    )
 
 
     prompt = f"""
@@ -711,12 +775,20 @@ Business Recommendation:
 """
 
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
+    try:
 
-    return response.text.strip()
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        return response.text.strip()
+
+    except Exception as error:
+
+        raise RuntimeError(
+            f"Gemini Insight Error: {error}"
+        )
 
 
 # ============================================================
@@ -734,7 +806,9 @@ def normal_business_question(question):
 
     try:
 
-        sql = generate_sql(question)
+        sql = generate_sql(
+            question
+        )
 
     except Exception as error:
 
@@ -758,7 +832,9 @@ def normal_business_question(question):
     # SQL VALIDATION
     # ========================================================
 
-    valid, message = validate_sql(sql)
+    valid, message = validate_sql(
+        sql
+    )
 
     print("\n" + "=" * 70)
     print("SQL VALIDATION")
@@ -786,7 +862,9 @@ def normal_business_question(question):
 
     try:
 
-        df = get_data(sql)
+        df = get_data(
+            sql
+        )
 
     except Exception as error:
 
@@ -819,7 +897,9 @@ def normal_business_question(question):
 
 
     print(
-        df.to_string(index=False)
+        df.to_string(
+            index=False
+        )
     )
 
 
@@ -949,15 +1029,14 @@ Key Finding:
             "success": False,
             "error": f"Gemini Insight Error: {error}",
             "sql": sql,
-            "data": df.to_dict(orient="records")
+            "data": df.to_dict(
+                orient="records"
+            )
         }
 
 
     # ========================================================
     # SAFETY FALLBACK
-    # ========================================================
-    # If Gemini incorrectly says insufficient despite a
-    # single-row ranking result, answer from database row.
     # ========================================================
 
     if (
@@ -967,7 +1046,9 @@ Key Finding:
 
         row = df.iloc[0]
 
-        columns = list(df.columns)
+        columns = list(
+            df.columns
+        )
 
         entity_columns = [
             "category",
@@ -1002,6 +1083,7 @@ Key Finding:
             if column in columns:
 
                 entity_column = column
+
                 break
 
 
@@ -1010,33 +1092,51 @@ Key Finding:
             if column in columns:
 
                 value_column = column
+
                 break
 
 
         if entity_column and value_column:
 
-            entity = row[entity_column]
-            value = row[value_column]
+            entity = row[
+                entity_column
+            ]
+
+            value = row[
+                value_column
+            ]
 
 
             try:
 
-                if isinstance(value, float):
+                if isinstance(
+                    value,
+                    float
+                ):
 
-                    formatted_value = f"{value:,.2f}"
+                    formatted_value = (
+                        f"{value:,.2f}"
+                    )
 
                 else:
 
-                    formatted_value = f"{value:,}"
+                    formatted_value = (
+                        f"{value:,}"
+                    )
 
             except Exception:
 
-                formatted_value = str(value)
+                formatted_value = str(
+                    value
+                )
 
 
             readable_value_name = (
                 value_column
-                .replace("_", " ")
+                .replace(
+                    "_",
+                    " "
+                )
             )
 
 
@@ -1067,7 +1167,9 @@ Key Finding:
         "question": question,
         "sql": sql,
         "answer": answer,
-        "data": df.to_dict(orient="records")
+        "data": df.to_dict(
+            orient="records"
+        )
     }
 
 
@@ -1094,7 +1196,9 @@ def process_question(question):
 
     if is_why_question(question):
 
-        print("\nRoot-cause question detected.")
+        print(
+            "\nRoot-cause question detected."
+        )
 
 
         analysis = root_cause_analysis(
@@ -1102,7 +1206,10 @@ def process_question(question):
         )
 
 
-        if not analysis.get("success", False):
+        if not analysis.get(
+            "success",
+            False
+        ):
 
             return analysis
 
@@ -1194,7 +1301,9 @@ def process_question(question):
                 analysis
             )
 
-            print(insight)
+            print(
+                insight
+            )
 
 
             return {
@@ -1203,22 +1312,39 @@ def process_question(question):
                 "answer": insight,
                 "type": "root_cause",
                 "analysis": {
-                    "overall": analysis["overall"].to_dict(
+                    "overall": analysis[
+                        "overall"
+                    ].to_dict(
                         orient="records"
                     ),
-                    "category": analysis["category"].to_dict(
+
+                    "category": analysis[
+                        "category"
+                    ].to_dict(
                         orient="records"
                     ),
-                    "region": analysis["region"].to_dict(
+
+                    "region": analysis[
+                        "region"
+                    ].to_dict(
                         orient="records"
                     ),
-                    "customer": analysis["customer"].to_dict(
+
+                    "customer": analysis[
+                        "customer"
+                    ].to_dict(
                         orient="records"
                     ),
-                    "product": analysis["product"].to_dict(
+
+                    "product": analysis[
+                        "product"
+                    ].to_dict(
                         orient="records"
                     ),
-                    "discount": analysis["discount"].to_dict(
+
+                    "discount": analysis[
+                        "discount"
+                    ].to_dict(
                         orient="records"
                     )
                 }
@@ -1227,8 +1353,14 @@ def process_question(question):
 
         except Exception as error:
 
-            print("\nGemini Error:")
-            print(error)
+            print(
+                "\nGemini Error:"
+            )
+
+            print(
+                error
+            )
+
 
             return {
                 "success": False,
@@ -1270,9 +1402,14 @@ if __name__ == "__main__":
     # FINAL STATUS
     # ========================================================
 
-    if not result.get("success", False):
+    if not result.get(
+        "success",
+        False
+    ):
 
-        print("\nERROR:")
+        print(
+            "\nERROR:"
+        )
 
         print(
             result.get(

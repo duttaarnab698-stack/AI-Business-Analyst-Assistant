@@ -37,7 +37,7 @@ client = genai.Client(
 # ============================================================
 
 DATABASE_SCHEMA = """
-Database: ai_business_analyst
+Database: ai_business_analyst_db
 
 Table: orders
 
@@ -142,10 +142,10 @@ def generate_sql(question):
     # ========================================================
 
     prompt = f"""
-You are an expert MySQL Business Analyst.
+You are an expert PostgreSQL Business Analyst.
 
 Your task is to convert the user's EXACT natural-language
-business question into ONE accurate MySQL SELECT query.
+business question into ONE accurate PostgreSQL SELECT query.
 
 DATABASE SCHEMA
 ---------------
@@ -184,7 +184,7 @@ STRICT SQL RULES
 
 9. Do NOT explain the SQL query.
 
-10. Use valid MySQL syntax.
+10. Use valid PostgreSQL syntax.
 
 11. For aggregation questions, use:
     SUM()
@@ -236,9 +236,10 @@ STRICT SQL RULES
 
 28. For segment analysis, use segment.
 
-29. For monthly analysis, use:
-    YEAR(order_date)
-    MONTH(order_date)
+29. For monthly analysis, use PostgreSQL syntax:
+
+    EXTRACT(YEAR FROM order_date)
+    EXTRACT(MONTH FROM order_date)
 
 30. If the user specifies a year, filter ONLY that year.
 
@@ -307,6 +308,20 @@ STRICT SQL RULES
 55. NEVER include an explanation before or after the SQL.
 
 56. Do NOT add a semicolon at the end of the query.
+
+57. Use PostgreSQL-compatible functions and syntax only.
+
+58. Do NOT use MySQL-specific functions such as:
+    YEAR()
+    MONTH()
+    DATE_FORMAT()
+    IFNULL()
+
+59. For year extraction use:
+    EXTRACT(YEAR FROM order_date)
+
+60. For month extraction use:
+    EXTRACT(MONTH FROM order_date)
 
 IMPORTANT EXAMPLES
 ------------------
@@ -385,8 +400,8 @@ SQL:
 SELECT
     SUM(sales) AS total_sales
 FROM orders
-WHERE YEAR(order_date) = 2017
-AND MONTH(order_date) = 3
+WHERE EXTRACT(YEAR FROM order_date) = 2017
+AND EXTRACT(MONTH FROM order_date) = 3
 
 
 Question:
@@ -434,10 +449,10 @@ USER QUESTION
     # REMOVE MARKDOWN CODE FENCES
     # ========================================================
 
+    sql = sql.replace("```postgresql", "")
+    sql = sql.replace("```PostgreSQL", "")
     sql = sql.replace("```sql", "")
     sql = sql.replace("```SQL", "")
-    sql = sql.replace("```mysql", "")
-    sql = sql.replace("```MySQL", "")
     sql = sql.replace("```", "")
 
     sql = sql.strip()
@@ -545,16 +560,10 @@ def validate_sql(sql):
     # Must use orders table
     # --------------------------------------------------------
 
-    # Accept:
-    # FROM orders
-    # FROM `orders`
-    # FROM ai_business_analyst.orders
-    # FROM `ai_business_analyst`.`orders`
-
     orders_pattern = (
         r"\bFROM\s+"
         r"(?:"
-        r"`?AI_BUSINESS_ANALYST`?"
+        r"`?AI_BUSINESS_ANALYST_DB`?"
         r"\s*\.\s*"
         r")?"
         r"`?ORDERS`?"
@@ -634,6 +643,31 @@ def validate_sql(sql):
 
 
     # --------------------------------------------------------
+    # Block MySQL-specific syntax
+    # --------------------------------------------------------
+
+    mysql_patterns = [
+        r"\bYEAR\s*\(",
+        r"\bMONTH\s*\(",
+        r"\bDATE_FORMAT\s*\(",
+        r"\bIFNULL\s*\("
+    ]
+
+
+    for pattern in mysql_patterns:
+
+        if re.search(
+            pattern,
+            sql_upper
+        ):
+
+            return False, (
+                "MySQL-specific syntax detected. "
+                "Use PostgreSQL syntax instead."
+            )
+
+
+    # --------------------------------------------------------
     # Validation successful
     # --------------------------------------------------------
 
@@ -647,7 +681,7 @@ def validate_sql(sql):
 if __name__ == "__main__":
 
     print("=" * 70)
-    print("AI BUSINESS ANALYST - TEXT TO SQL")
+    print("AI BUSINESS ANALYST - POSTGRESQL TEXT TO SQL")
     print("=" * 70)
 
 
