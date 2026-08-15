@@ -1,4 +1,6 @@
 """Vercel entry point for the AI Business Analyst Flask API."""
+import re
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -9,16 +11,27 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, methods=["GET", "POST", "OPTIONS"])
 
 
-def public_error(message):
-    """Keep provider/database internals out of browser responses."""
-    message, lowered = str(message), str(message).lower()
-    if "429" in lowered or "resource_exhausted" in lowered:
-        return "The AI service is busy. Please wait a moment and try again."
-    if any(code in lowered for code in ("401", "403")):
-        return "The AI service configuration is unavailable. Please try again later."
-    if any(token in lowered for token in ("500", "502", "503", "timeout", "connection", "gemini", "database error", "psycopg")):
-        return "The analysis service is temporarily unavailable. Please try again shortly."
-    return message if len(message) <= 300 else "Unable to analyze this question. Please try again."
+def error_stage(message):
+    """Classify an existing backend failure without changing its source."""
+    lowered = str(message).lower()
+    if "sql generation" in lowered or "sql validation" in lowered:
+        return "sql_generation"
+    if "database" in lowered or "psycopg" in lowered or "sqlalchemy" in lowered:
+        return "database"
+    if "gemini" in lowered or "resource_exhausted" in lowered or any(code in lowered for code in ("429", "401", "403")):
+        return "gemini"
+    return "unknown"
+
+
+def safe_error(message):
+    """Expose debugging context while redacting credentials and connection URLs."""
+    message = str(message)
+    message = re.sub(r"postgres(?:ql)?(?:\+[^:]+)?://[^\s'\"]+", "[REDACTED_DATABASE_URL]", message)
+    message = re.sub(r"AIza[\w-]+", "[REDACTED_GEMINI_API_KEY]", message)
+    message = re.sub(r"(?i)(gemini_api_key|database_url)\s*[=:]\s*[^\s,]+", r"\1=[REDACTED]", message)
+    if "429" in message or "RESOURCE_EXHAUSTED" in message.upper():
+        return "Gemini API quota/rate limit exceeded. " + message[:500]
+    return message[:700]
 
 
 @app.get("/")
@@ -54,11 +67,19 @@ def ask_question():
     try:
         result = process_question(question.strip())
         if not result.get("success"):
-            result["error"] = public_error(result.get("error", "Unable to analyze this question."))
+            actual_error = result.get("error", "Unable to analyze this question.")
+            stage = error_stage(actual_error)
+            app.logger.error("Question processing failed at %s: %s", stage, actual_error)
+            return jsonify({
+                "success": False,
+                "error": safe_error(actual_error),
+                "stage": stage,
+            }), 422
         return jsonify(result), 200 if result.get("success") else 422
-    except Exception:
+    except Exception as error:
         app.logger.exception("Question processing failed")
         return jsonify({
             "success": False,
-            "error": "The analysis service is temporarily unavailable. Please try again shortly.",
+            "error": safe_error(error),
+            "stage": error_stage(error),
         }), 503
