@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from .ai_analyst import process_question
+from ai_analyst import process_question
 
 
 app = Flask(__name__)
