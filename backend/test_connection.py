@@ -1,4 +1,4 @@
-from database import get_data
+from backend.database import get_data
 
 
 query = """

@@ -1,88 +1,21 @@
-# 🤖 AI Business Analyst Assistant
+# AI Business Analyst Assistant
 
-An AI-powered Business Intelligence application that allows users to ask
-business questions in natural language and receive data-driven insights
-from a MySQL database.
+Ask natural-language business questions and receive data-backed insights. The application uses a static HTML/CSS/JavaScript frontend, a Flask API deployed as a Vercel Python function, PostgreSQL, and Google Gemini.
 
-The system combines:
+## Architecture
 
-- 🤖 Gemini AI
-- 🗄️ MySQL
-- 🧠 Natural Language → SQL
-- 🌐 Flask API
-- 📊 Power BI
-- 🖥️ Interactive Web Interface
+`Vercel frontend → Vercel Flask API → PostgreSQL → Gemini API`
 
----
+The API queries the `orders` table and never exposes database or Gemini credentials to the browser.
 
-## 📌 Project Overview
+## Local development
 
-Traditional business analysis often requires users to know SQL and
-understand complex dashboards.
+1. Create `.env` from `.env.example` and set `DATABASE_URL` and `GEMINI_API_KEY`.
+2. Install dependencies: `pip install -r requirements.txt`
+3. Run with the Vercel CLI: `vercel dev`
 
-The AI Business Analyst Assistant solves this problem by allowing users
-to ask questions in simple natural language.
+To import `data/superstore.csv` into an existing PostgreSQL database, run `python import_to_postgres.py`. This replaces the `orders` table.
 
-For example:
+## Deployment
 
-> "Which category generated the highest sales?"
-
-The system automatically:
-
-1. Understands the business question.
-2. Generates an appropriate SQL query.
-3. Validates the SQL query.
-4. Executes the query on the MySQL database.
-5. Retrieves the business data.
-6. Generates an AI-powered business insight.
-7. Displays the result through the web interface.
-
----
-
-# 🏗️ System Architecture
-
-```text
-                         USER
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │  Web Frontend   │
-                  └────────┬────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │   Flask API     │
-                  └────────┬────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │    Gemini AI    │
-                  │  SQL Generator  │
-                  └────────┬────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │  SQL Validator  │
-                  └────────┬────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │      MySQL      │
-                  │ orders Database │
-                  └────────┬────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │ Business Result │
-                  └────────┬────────┘
-                           │
-                           ▼
-                  ┌─────────────────┐
-                  │   AI Insight    │
-                  └─────────────────┘
-
-
-              ┌──────────────────────┐
-              │      Power BI        │
-              │ Business Dashboard   │
-              └──────────────────────┘
+Deploy the repository to Vercel and configure the two environment variables listed in `.env.example`. `vercel.json` serves the frontend and routes `/api/*` to `api/index.py`.

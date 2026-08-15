@@ -8,8 +8,8 @@ from google import genai
 # IMPORTANT:
 # ai_analyst.py এবং sql_generator.py/database.py
 # একই backend folder-এর মধ্যে আছে।
-from sql_generator import generate_sql, validate_sql
-from database import get_data
+from .sql_generator import generate_sql, validate_sql
+from .database import get_data
 
 
 # ============================================================

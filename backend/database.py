@@ -22,9 +22,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    raise ValueError(
-        "DATABASE_URL not found in .env file."
-    )
+    raise ValueError("DATABASE_URL is required. Set it in Vercel environment variables or .env for local development.")
 
 
 # ============================================================
@@ -54,6 +52,9 @@ elif DATABASE_URL.startswith("postgresql+psycopg2://"):
         "postgresql+psycopg://",
         1
     )
+
+elif not DATABASE_URL.startswith("postgresql+psycopg://"):
+    raise ValueError("DATABASE_URL must use a PostgreSQL URL (postgresql://, postgres://, or postgresql+psycopg://).")
 
 
 # ============================================================

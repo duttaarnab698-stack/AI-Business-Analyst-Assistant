@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from ai_analyst import process_question
+from .ai_analyst import process_question
 
 
 # ============================================================
@@ -13,7 +13,7 @@ app = Flask(__name__)
 
 # ============================================================
 # CORS
-# Allow Vercel frontend to call Render API
+# Allow browser clients to call the API during local development.
 # ============================================================
 
 CORS(
