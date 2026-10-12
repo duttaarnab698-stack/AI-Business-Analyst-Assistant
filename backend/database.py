@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 
 
 # ============================================================
@@ -26,35 +27,50 @@ if not DATABASE_URL:
 
 
 # ============================================================
-# FORCE PSYCOPG DRIVER
+# NORMALIZE THE URL FOR PSYCOPG
 # ============================================================
 
-if DATABASE_URL.startswith("postgresql://"):
+try:
+    database_url = make_url(DATABASE_URL)
+except Exception as error:
+    raise ValueError("DATABASE_URL must be a valid PostgreSQL URL.") from error
 
-    DATABASE_URL = DATABASE_URL.replace(
-        "postgresql://",
-        "postgresql+psycopg://",
-        1
+if database_url.drivername not in {
+    "postgresql",
+    "postgres",
+    "postgresql+psycopg",
+}:
+    raise ValueError(
+        "DATABASE_URL must use postgresql://, postgres://, "
+        "or postgresql+psycopg://."
     )
 
-elif DATABASE_URL.startswith("postgres://"):
+# URL.set preserves encoded credentials and query parameters while selecting the
+# installed psycopg (v3) dialect.  It is safer than modifying the raw URL string.
+DATABASE_URL = database_url.set(drivername="postgresql+psycopg")
 
-    DATABASE_URL = DATABASE_URL.replace(
-        "postgres://",
-        "postgresql+psycopg://",
-        1
-    )
 
-elif DATABASE_URL.startswith("postgresql+psycopg2://"):
+# ============================================================
+# SSL OPTIONS
+# ============================================================
 
-    DATABASE_URL = DATABASE_URL.replace(
-        "postgresql+psycopg2://",
-        "postgresql+psycopg://",
-        1
-    )
+# A provider-supplied SSL option in the URL is authoritative.  Otherwise require
+# TLS explicitly for hosted PostgreSQL.  This avoids duplicate/conflicting
+# sslmode values between the URL and psycopg connect arguments.
+SSL_QUERY_PARAMETERS = {
+    "sslmode",
+    "sslrootcert",
+    "sslcert",
+    "sslkey",
+    "sslcrl",
+}
 
-elif not DATABASE_URL.startswith("postgresql+psycopg://"):
-    raise ValueError("DATABASE_URL must use a PostgreSQL URL (postgresql://, postgres://, or postgresql+psycopg://).")
+connect_args = {
+    "connect_timeout": 10,
+}
+
+if not SSL_QUERY_PARAMETERS.intersection(database_url.query):
+    connect_args["sslmode"] = "require"
 
 
 # ============================================================
@@ -64,11 +80,17 @@ elif not DATABASE_URL.startswith("postgresql+psycopg://"):
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
+    pool_size=1,
+    max_overflow=0,
     pool_recycle=300,
-    connect_args={
-        "connect_timeout": 30
-    }
+    pool_timeout=10,
+    connect_args=connect_args,
 )
+
+
+def dispose_engine():
+    """Close idle pooled connections when a serverless request is complete."""
+    engine.dispose()
 
 
 # ============================================================
@@ -76,27 +98,13 @@ engine = create_engine(
 # ============================================================
 
 def test_connection():
-
     try:
-
+        # This checks a real connection and a simple PostgreSQL round trip.
         with engine.connect() as connection:
-
-            result = connection.execute(
-                text("SELECT 1")
-            )
-
-            result.fetchone()
-
-        return True
-
+            return connection.scalar(text("SELECT 1")) == 1
     except Exception as error:
-
-        print(
-            "\nDatabase connection failed:"
-        )
-
+        print("\nDatabase connection failed:")
         print(error)
-
         return False
 
 

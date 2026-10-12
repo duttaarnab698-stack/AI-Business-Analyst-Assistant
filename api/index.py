@@ -5,10 +5,17 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from backend.ai_analyst import process_question
+from backend.database import dispose_engine
 
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, methods=["GET", "POST", "OPTIONS"])
+
+
+@app.teardown_appcontext
+def close_serverless_database_connections(exception=None):
+    """Do not retain idle PostgreSQL sockets in a warm Vercel function."""
+    dispose_engine()
 
 
 def error_stage(message):
