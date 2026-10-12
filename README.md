@@ -1,16 +1,16 @@
 # AI Business Analyst Assistant
 
-Ask natural-language business questions and receive data-backed insights. The application uses a static HTML/CSS/JavaScript frontend, a Flask API deployed as a Vercel Python function, PostgreSQL, and Google Gemini.
+Ask common business questions and receive data-backed insights. The application uses a static HTML/CSS/JavaScript frontend, a rule-based Flask API deployed as a Vercel Python function, and PostgreSQL.
 
 ## Architecture
 
-`Vercel frontend → Vercel Flask API → PostgreSQL → Gemini API`
+`Vercel frontend → Vercel Flask API → PostgreSQL`
 
-The API queries the `orders` table and never exposes database or Gemini credentials to the browser.
+The API matches supported question patterns to safe, predefined PostgreSQL queries against the `orders` table. It never exposes database credentials to the browser.
 
 ## Local development
 
-1. Create `.env` from `.env.example` and set `DATABASE_URL` and `GEMINI_API_KEY`.
+1. Create `.env` from `.env.example` and set `DATABASE_URL`.
 2. Install dependencies: `pip install -r requirements.txt`
 3. Run with the Vercel CLI: `vercel dev`
 
@@ -18,4 +18,4 @@ To import `data/superstore.csv` into an existing PostgreSQL database, run `pytho
 
 ## Deployment
 
-Deploy the repository to Vercel and configure the two environment variables listed in `.env.example`. `vercel.json` serves the frontend and routes `/api/*` to `api/index.py`.
+Deploy the repository to Vercel and configure `DATABASE_URL`. `vercel.json` serves the frontend and leaves `/api/*` for the Flask app in `api/index.py`.

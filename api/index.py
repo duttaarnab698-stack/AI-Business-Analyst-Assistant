@@ -25,8 +25,6 @@ def error_stage(message):
         return "sql_generation"
     if "database" in lowered or "psycopg" in lowered or "sqlalchemy" in lowered:
         return "database"
-    if "gemini" in lowered or "resource_exhausted" in lowered or any(code in lowered for code in ("429", "401", "403")):
-        return "gemini"
     return "unknown"
 
 
@@ -34,10 +32,7 @@ def safe_error(message):
     """Expose debugging context while redacting credentials and connection URLs."""
     message = str(message)
     message = re.sub(r"postgres(?:ql)?(?:\+[^:]+)?://[^\s'\"]+", "[REDACTED_DATABASE_URL]", message)
-    message = re.sub(r"AIza[\w-]+", "[REDACTED_GEMINI_API_KEY]", message)
-    message = re.sub(r"(?i)(gemini_api_key|database_url)\s*[=:]\s*[^\s,]+", r"\1=[REDACTED]", message)
-    if "429" in message or "RESOURCE_EXHAUSTED" in message.upper():
-        return "Gemini API quota/rate limit exceeded. " + message[:500]
+    message = re.sub(r"(?i)database_url\s*[=:]\s*[^\s,]+", "DATABASE_URL=[REDACTED]", message)
     return message[:700]
 
 
